@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include "string.h"
 #include "apue.h"
-#include <unistd.h>
+#include <unistd.h>//magic number 0，1，2作为文件标识符的常量定义
 
-#define TRUE 1
 #define MAXLINE 1024
 #define MAXLINES 64
 #define MAXARGS 32
@@ -21,7 +20,7 @@ int main()
     memset(cmdhistory,0,sizeof(cmdhistory));
 
 
-while(True)
+while(1)
 {   
     /*打印prompt*/
     type_prompt();
@@ -51,7 +50,7 @@ void type_prompt()
 char *read_cmd(void)
 {
     char *line = NULL;
-    sszie_t bufsize = 0;
+    size_t bufsize = 0;
     getline(&line, &bufsize, stdin);
     return line;
 }
@@ -95,7 +94,7 @@ void  execmd(char **parameters[][])
         int pid = fork();
         if(pid<0)
         {
-            perror("fork failed!");
+            err_sys("fork failed!");
             return -1;
         }
         if(fork()!=0)
@@ -159,12 +158,16 @@ void exe_exit()
    exit(0);
 }
 /*mytop
-通过minix3系统~/proc文件夹中 open/read系统调用输出进程信息
+通过minix3系统~/proc文件夹中 open/read系统调用，在程序只利用I/O进行访问
+输出进程信息
 输出目标：
-- 总体内存大小
-- 空闲内存大小
-- 缓存大小*/
+- 总体内存大小 read /proc/meminfo文件读 pagesize*total/1024;
+- 空闲内存大小 pagesize*free/1024
+- 缓存大小 cached*pagesize/1024
+- 总体CPU使用占比
+    - 得到当前系统各个进程的进程信息，通过/proc/kinfo查看进程和任务数量 */ 
 void exe_mytop()
 {
+    /*总体内存/空闲内存/缓存大小*/
     
 }
