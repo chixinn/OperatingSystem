@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include "string.h"
-#include "apue.h"
+#include "apue.h"//
 #include <unistd.h>//magic number 0，1，2作为文件标识符的常量定义
+#include<fcntl.h>//
+#include<sys/stat.h>//
+#include<sys/types.h>//
+
+
 
 #define MAXLINE 1024
 #define MAXLINES 64
@@ -10,6 +15,8 @@
 #define MASARGLEN 32
 
 /*目前版本都未实现错误处理的wrapper和考虑C语言中字符串数组初始化的内存问题*/
+/*未考虑输入的字符非已知命令或者是系统存在program的问题
+ *未考虑所有调用时出现错误的边界问题*/
 int main()
 {
     int historycount = 0;
@@ -40,6 +47,11 @@ while(1)
 }
 return 0;
 }
+/*main函数的猪蹄框架设计思路为：
+读命令、解析命令、调用命令，最后做相应的反应*/
+
+
+/*各动作的具体实现*/
 
 void type_prompt()
 {
@@ -69,6 +81,7 @@ char **parse_line(char *line[])
     while(token != NULL)
     {
         parameters[i] = strtok(NULL, ' ');/*获取参数列表*/
+        /*需要在参数解析的时候来判断有没有管道和重定向*/
         i++;
     }
     parameters[i] = NULL;
@@ -105,7 +118,13 @@ void  execmd(char **parameters[][])
         else
         {
         /*子进程需要执行的相关代码*/
-        execve(command,parameters,0);/*shell支持的后台进程的执行*/
+        if(strcmp(parameters[0],'ls') == 0)
+            exe_ls(parameters);
+        if(strcmp(parameters[0],'vi') == 0)
+            exe_vi(parameters);
+        if(strcmp(parameters[0],'grep') == 0)
+            exe_grep(parameters);
+        /*shell支持的后台进程的执行*/
         }
     }
     
@@ -158,7 +177,9 @@ void exe_exit()
    exit(0);
 }
 /*mytop
-通过minix3系统~/proc文件夹中 open/read系统调用，在程序只利用I/O进行访问
+在minix3系统~/proc文件夹中通过系统调用，
+意味着我此时要移动shell的工作目录?
+open/read系统调用，在程序只利用I/O进行访问
 输出进程信息
 输出目标：
 - 总体内存大小 read /proc/meminfo文件读 pagesize*total/1024;
@@ -167,7 +188,38 @@ void exe_exit()
 - 总体CPU使用占比
     - 得到当前系统各个进程的进程信息，通过/proc/kinfo查看进程和任务数量 */ 
 void exe_mytop()
-{
-    /*总体内存/空闲内存/缓存大小*/
-    
+{   
+    int pagesize,total,free,largest,cached;
+    FILE *fp;
+    fp=fopen('/proc/meminfo',"r");
+    fscanf(fp, "%d %d %d %d %d", &pagesize,&total,&free,&largest,&cached);
+    fclose(fp);
+    /*错误处理wrapper*/
+    printf("Total memory: %d\n ",pagesize*total/1024);
+    printf("Free memory: %d\n",pagesize*free/1024);
+    printf("Cached memory: %d\n",pagesize*cached/1024);
+    /*难点如何得到所有的proc*/   
 }
+
+/*shell非内置命令 Program命令*/
+/*运行minix程序,如ls,此时对读取参数的解析需要有变化,而ls本质是打印当前的工作目录*/
+void exe_ls(char **parameters[][])
+{   
+    /*利用execvp调用将minix程序装载到该进程
+    并赋予运行参数*/
+    /*参数字符串必须以null结尾*/
+    execvp("ls",parameters);
+}
+
+void exe_vi(char **parameters[][])
+{
+    execvp("ls",parameters);
+}
+void exe_bg()
+{
+    /*子进程，即shellfork出来的那个进程的标准输入、输出映射成/dev/null
+    同时，这个子进程调用signal(SIGCHLD,SIG_IGN),使kernel接管此进程
+    因此shell可避免调用wait/waitpid直接运行下一条命令*/
+
+}
+
