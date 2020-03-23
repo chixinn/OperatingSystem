@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/chixinning/Desktop/TmpCode/tsh_2/main.c
+stdio.h
+-
+string.h
+/Users/chixinning/Desktop/TmpCode/tsh_2/string.h
+unistd.h
+-
+stdlib.h
+-
+fcntl.h
+-
+
