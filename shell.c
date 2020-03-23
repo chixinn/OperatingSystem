@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "string.h"
-#include "apue.h"//
 #include <unistd.h>//magic number 0，1，2作为文件标识符的常量定义
 #include<fcntl.h>//
 #include<sys/stat.h>//
@@ -17,12 +16,19 @@
 /*目前版本都未实现错误处理的wrapper和考虑C语言中字符串数组初始化的内存问题*/
 /*未考虑输入的字符非已知命令或者是系统存在program的问题
  *未考虑所有调用时出现错误的边界问题*/
+
 int main()
 {
     int historycount = 0;
     char *cmdline[MAXLINE];
-    char **parameters[MAXARGS][MASARGLEN];
-    memset(parameters,0,sizeof(parameters));
+    struct parse
+    {
+        char **parameters[MAXARGS][MASARGLEN];
+        bool special;
+    };
+    struct parse *myparse;
+    
+    memset(myparse->parameters,0,sizeof(myparse->parameters));
     char **cmdhistory[MAXLINES][MAXLINE];
     memset(cmdhistory,0,sizeof(cmdhistory));
 
@@ -36,9 +42,9 @@ while(1)
     /*读取命令行数据并保存命令行数据历史*/
     cmdhistory[historycount] = cmdline; historycount++;
     /*解析命令行并将命令行分解成参数列表的形式*/
-    parameters = parse_line(cmdline);
+    myparse = parse_line(cmdline);
     /*根据命令名称分为二类分别处理*/
-    execmd(parameters);
+    execmd(myparse->parameters);
 
     /*Shell 主要是为用户提供了一个命令解释器，接收用户命令主要是调用相应的应用程序，
         实现Shell支持后台进程的运行。*/
@@ -72,34 +78,38 @@ char *read_cmd(void)
   strtok函数的原型为 char *strtok(char *s,char *delim)
   strtok函数的用法参考菜鸟教程
 */
-char **parse_line(char *line[])
+struct parse *parse_line(char *line[])
 {
     int i = 0;
     char *str = line;
-    char **parameters[MAXARGS][MASARGLEN];
+    struct parse *res;
+    res->special == FALSE;
     char *token = strtok(str, ' ');
     while(token != NULL)
     {
-        parameters[i] = strtok(NULL, ' ');/*获取参数列表*/
+        res->parameters[i] = strtok(NULL, ' ');/*获取参数列表*/
         /*需要在参数解析的时候来判断有没有管道和重定向*/
+        if(res->paramaters[i] == '|' ||res->paramaters[i] == '>' ||res->paramaters[i] == '<')
+        res->special == TRUE;
         i++;
+        
     }
-    parameters[i] = NULL;
-    return parameters;
+    res->parameters[i] = NULL;//将命令行的最后一个置为空，为后续的一些系统调用做准备
+    return res;
 }
 /*根据命令名称分为二类分别处理*/
-void  execmd(char **parameters[][])
+void  execmd(struct parse *myparse)
 {
-    bool result = built_in(parameters);
+    bool result = built_in(myparse->parameters);
     if(result == TRUE)
     {
-        if(strcmp(parameters[0],'cd') == 0)
-            exe_cd(parameters);
-        if(strcmp(parameters[0],'history') == 0)
-            exe_history(parameters);
-        if(strcmp(parameters[0],'exit') == 0)
+        if(strcmp(myparse->parameters[0],'cd') == 0)
+            exe_cd(myparse->parameters);
+        if(strcmp(myparse->parameters[0],'history') == 0)
+            exe_history(myparse->parameters,cmdhistory,historycount);
+        if(strcmp(myparse->parameters[0],'exit') == 0)
             exe_exit();
-        if(strcmp(parameters[0],'mytop') == 0)
+        if(strcmp(myparse->parameters[0],'mytop') == 0)
             exe_mytop();
     }
     else/*如果不是builin就fork一个子进程来完成*/
@@ -118,12 +128,12 @@ void  execmd(char **parameters[][])
         else
         {
         /*子进程需要执行的相关代码*/
-        if(strcmp(parameters[0],'ls') == 0)
-            exe_ls(parameters);
-        if(strcmp(parameters[0],'vi') == 0)
-            exe_vi(parameters);
-        if(strcmp(parameters[0],'grep') == 0)
-            exe_grep(parameters);
+        if(strcmp(myparse->parameters[0],'ls') == 0)
+            exe_ls(myparse->parameters);
+        if(strcmp(myparse->parameters[0],'vi') == 0)
+            exe_vi(myparse->parameters);
+        if(strcmp(myparse->parameters[0],'grep') == 0)
+            exe_grep(myparse->parameters);
         /*shell支持的后台进程的执行*/
         }
     }
@@ -164,7 +174,7 @@ void exe_cd(char **parameters[][])
 }
 /*history命令：保存shell每次的输入行，打印所需字符串即可;
 因为histroy现实最近执行的n条命令，所以倒序即可*/
-void exe_history(char **parameters[][], char **cmdhistory[][];)
+void exe_history(char **parameters[][], char **cmdhistory[][], int historycount)
 {
     int n = parameters[1];
     for(int i = historycount-1; i > historycount-1-n ;i--)/*注意这里倒序的下标的边界*/
@@ -203,23 +213,34 @@ void exe_mytop()
 
 /*shell非内置命令 Program命令*/
 /*运行minix程序,如ls,此时对读取参数的解析需要有变化,而ls本质是打印当前的工作目录*/
-void exe_ls(char **parameters[][])
+void exe_ls(struct *parse)
 {   
     /*利用execvp调用将minix程序装载到该进程
     并赋予运行参数*/
     /*参数字符串必须以null结尾*/
-    execvp("ls",parameters);
+    if(parse->special == FALSE)
+        execvp("ls",parse->paparameters);
+    else
+    {
+        /*跟特殊字符的管道或者重定向*/
+    }
 }
 
 void exe_vi(char **parameters[][])
 {
-    execvp("ls",parameters);
+    execvp("vi",parameters);
+    exit(0);
 }
 void exe_bg()
 {
     /*子进程，即shellfork出来的那个进程的标准输入、输出映射成/dev/null
     同时，这个子进程调用signal(SIGCHLD,SIG_IGN),使kernel接管此进程
     因此shell可避免调用wait/waitpid直接运行下一条命令*/
+
+
+}
+void exe_grep()
+{
 
 }
 
